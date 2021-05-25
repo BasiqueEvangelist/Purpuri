@@ -90,20 +90,24 @@ uint32_t Engine::Ignite(StackFrame* Stack) {
             case invokespecial:
                 Invoke(CurrentFrame, invokespecial);
                 CurrentFrame->ProgramCounter += 3;
+                if (!TryHandleException(CurrentFrame)) return 0;
                 break;
 
             case invokevirtual:
                 Invoke(CurrentFrame, invokevirtual);
                 CurrentFrame->ProgramCounter += 3;
+                if (!TryHandleException(CurrentFrame)) return 0;
                 break;
 
             case invokeinterface:
                 Invoke(CurrentFrame, invokeinterface);
                 CurrentFrame->ProgramCounter += 5;
+                if (!TryHandleException(CurrentFrame)) return 0;
                 break;
             case invokestatic:
                 Invoke(CurrentFrame, invokestatic);
                 CurrentFrame->ProgramCounter += 3;
+                if (!TryHandleException(CurrentFrame)) return 0;
                 break;
 
             case putfield:
@@ -447,6 +451,11 @@ uint32_t Engine::Ignite(StackFrame* Stack) {
                 printf("Pushed char %d to the stack\n", CurrentFrame->Stack[CurrentFrame->StackPointer].charVal);
                 break;
 
+            case athrow:
+                ThrowException(CurrentFrame);
+                if (!TryHandleException(CurrentFrame)) return 0;
+                break;
+
             default: printf("\nUnhandled opcode 0x%x\n", Code[CurrentFrame->ProgramCounter]); CurrentFrame->ProgramCounter++; return false;
         }
 
@@ -635,6 +644,51 @@ void Engine::Invoke(StackFrame *Stack, uint16_t Type) {
     Stack->Stack[Stack->StackPointer + Offset] = UnderStack;
     printf("Restoring the value %zu under the function, just in case.\r\n", UnderStack.pointerVal);
 
+}
+
+void Engine::ThrowException(StackFrame* frame) {
+    Object excep = frame->Stack[frame->StackPointer].object;
+    if (excep.Heap == 0) {
+        Class* nullPtrExcep = this->_ClassHeap->GetClass("java/lang/NullPointerException");
+
+        excep = _ObjectHeap.CreateObject(nullPtrExcep);
+    }
+    Variable* var = _ObjectHeap.GetObjectPtr(excep);
+    printf("\tClass at 0x%zx.\r\n", var->pointerVal);
+    class Class* VirtualClass = (class Class*) var->pointerVal;
+    printf("\tThrowing exception named %s\r\n", VirtualClass->GetClassName().c_str());
+    CurrentException = excep;
+}
+
+bool Engine::TryHandleException(StackFrame* frame) {
+    if (CurrentException.Heap == 0) return true;
+
+    auto* methodCode = frame->_Method->Code;
+    for (int i = 0; i < methodCode->ExceptionCount; i++) {
+        Exception exc = methodCode->Exceptions[i];
+        
+        if (frame->ProgramCounter < exc.PCStart || frame->ProgramCounter >= exc.PCEnd)
+            continue;
+
+        if (exc.CatchType != 0) {
+            std::string className = frame->_Class->GetStringConstant(exc.CatchType);
+            printf("\tException handler has catchtype %s\r\n", className.c_str());
+            Class* catchType = _ClassHeap->GetClass(className);
+            
+            Variable* var = _ObjectHeap.GetObjectPtr(CurrentException);
+            class Class* excepClass = (class Class*) var->pointerVal;
+
+            if (!catchType->IsAssignableFrom(excepClass))
+                continue;
+        }
+
+        frame->StackPointer++;
+        frame->Stack[frame->StackPointer].object = CurrentException;
+        CurrentException = Object();
+        frame->ProgramCounter = exc.PCHandler;
+        return true;
+    }
+    return false;
 }
 
 uint16_t Engine::GetParameters(const char *Descriptor) {

@@ -7,6 +7,7 @@ public class Driver {
         System.out.println("Final Field Interface: " + TestCaseFinalFieldInterface.EntryPoint());
         System.out.println("Inner Class: " + TestCaseInnerClass.EntryPoint());
         System.out.println("Inner Class Field: " + TestCaseInnerClassField.EntryPoint());
+        System.out.println("Exception: " + TestException.EntryPoint());
     }
 
 }

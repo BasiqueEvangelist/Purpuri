@@ -272,7 +272,7 @@ bool Class::ParseMethodCodePoints(int Method, CodePoint *Code) {
 
                 AttribCode += Code->CodeLength;
 
-                Code->ExceptionCount = ReadShortFromStream(AttribCode);
+                Code->ExceptionCount = ReadShortFromStream(AttribCode); AttribCode += 2;
                 if(Code->ExceptionCount > 0) {
                     Code->Exceptions = new Exception[Code->ExceptionCount];
 
@@ -402,6 +402,13 @@ uint32_t Class::GetClassFieldCount() {
     
     Count += SuperSize;
     return Count;
+}
+
+bool Class::IsAssignableFrom(Class* cls) {
+    if (cls == this || cls->GetSuper() == this) return true;
+    if (cls->GetClassName() == "java/lang/Object") return false;
+
+    return IsAssignableFrom(cls->GetSuper());
 }
 
 Class* Class::GetSuper() {

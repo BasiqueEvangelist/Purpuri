@@ -20,6 +20,7 @@ class Engine {
     public:
         ClassHeap* _ClassHeap;
         ObjectHeap _ObjectHeap;
+        Object CurrentException{0, 0};
 
         Engine();
         virtual ~Engine();
@@ -27,6 +28,9 @@ class Engine {
 
         void Invoke(StackFrame* Stack, uint16_t Type);
         void InvokeNative(StackFrame* Stack);
+
+        void ThrowException(StackFrame* Stack);
+        bool TryHandleException(StackFrame* Stack);
 
         bool MethodClassMatches(uint16_t MethodInd, Class* pClass, const char* TestName);
 
@@ -113,6 +117,8 @@ class Class : public ClassFile {
 
         virtual uint32_t GetClassSize();
         virtual uint32_t GetClassFieldCount();
+
+        bool IsAssignableFrom(Class* cls);
 
         Class* GetSuper();
 
